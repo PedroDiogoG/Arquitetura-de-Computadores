@@ -7,6 +7,31 @@
 
 using namespace std;
 
+bitset<32> H, TOS, OPC, CPP, LV, SP, PC, MDR, MAR;
+bitset<8> MBR;
+
+vector<bitset<32>> registradores(9);
+
+bitset<9> Decod(const bitset<4>& entrada) {
+    bitset<9> saida(0);
+    int indice = static_cast<int>(entrada.to_ulong());
+
+
+    if (indice >= 0 && indice <= 8) {
+        saida.set(indice); //habilita só o que a gente quer
+    }
+    return saida;
+
+}
+
+void Seletor(const bitset<9>& seletor, const bitset<32>& valor) {
+    for (int i = 0; i < 9; ++i) {
+        if (seletor[i]) {
+            registradores[i] = valor;
+        }
+    }
+}
+
 vector<bitset<32>> FuncAB(const vector<int>& instrucao, const bitset<32>& A, const bitset<32>& B) {
     bool ENA  = instrucao[4];
     bool ENB  = instrucao[5];
