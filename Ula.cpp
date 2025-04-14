@@ -24,6 +24,16 @@ bitset<9> Decod(const bitset<4>& entrada) {
 
 }
 
+bitset<32> LeBarramentoB(const bitset<9>& seletor) {
+    for (int i = 0; i < 9; ++i) {
+        if (seletor[i])
+            return registradores[i];
+    }
+    return bitset<32>(0);
+}
+
+
+
 void Seletor(const bitset<9>& seletor, const bitset<32>& valor) {
     for (int i = 0; i < 9; ++i) {
         if (seletor[i]) {
