@@ -7,39 +7,178 @@
 
 using namespace std;
 
-bitset<32> H, TOS, OPC, CPP, LV, SP, PC, MDR, MAR;
-bitset<8> MBR;
+bitset<32> MAR("00000000000000000000000000000000");
+bitset<32> MDR("00000000000000000000000000000000");
+bitset<32> PC ("00000000000000000000000000000000");
+bitset<32> SP ("00000000000000000000000000000000");
+bitset<32> LV ("00000000000000000000000000000000");
+bitset<32> CPP("00000000000000000000000000000000");
+bitset<32> TOS("00000000000000000000000000000010");
+bitset<32> OPC("00000000000000000000000000000000");
+bitset<32> H  ("00000000000000000000000000000001");
 
-vector<bitset<32>> registradores(9);
+bitset<8> MBR ("10000001");
 
-bitset<9> Decod(const bitset<4>& entrada) {
-    bitset<9> saida(0);
-    int indice = static_cast<int>(entrada.to_ulong());
+string c_bus;
+string b_bus;
 
+bitset<32> Decod(const vector<int>& instrucao) { //Faz a decodificacao
+    string bitsDecod;
 
-    if (indice >= 0 && indice <= 8) {
-        saida.set(indice); //habilita só o que a gente quer
+    for (int j = instrucao.size() - 4; j < instrucao.size(); j++) {
+        bitsDecod.push_back(instrucao[j] ? '1' : '0');
     }
+
+    bitset<4> Bitset_Decod(bitsDecod);
+
+    bitset<32> saida(0);
+    int indice = static_cast<int>(Bitset_Decod.to_ulong());
+    cout << "INDICEEEE " <<  indice << endl;
+    switch (indice) {
+        case 0:
+            saida = MDR;
+            b_bus = "MDR";
+            break;
+        case 1:
+            saida = PC;
+            b_bus = "PC";
+            break;
+        case 2: {
+            // Se o bit de sinal (bit 7) for 1, os bits superiores devem ser preenchidos com 1.
+            unsigned long valor = MBR.to_ulong();
+            if (MBR.test(7)) { // verifica se o bit de sinal é 1 ou 0
+                valor |= 0xFFFFFF00; // preenche os 24 bits superiores com 1
+            }
+            saida = bitset<32>(valor);
+            b_bus = "MBR";
+            break;
+        }
+        case 3:
+            // por default os bits vazios sao 0
+            saida = bitset<32>(MBR.to_ulong());
+            b_bus = "MBRU";
+            break;
+        case 4:
+            saida = SP;
+            b_bus = "SP";
+            break;
+        case 5:
+            saida = LV;
+            b_bus = "LV";
+            break;
+        case 6:
+            saida = CPP;
+            b_bus = "CPP";
+            break;
+        case 7:
+            saida = TOS;
+            b_bus = "TOS";
+            break;
+        case 8:
+            saida = OPC;
+            b_bus = "OPC";
+            break;
+        default:
+            break;
+        } 
+
     return saida;
-
 }
 
-bitset<32> LeBarramentoB(const bitset<9>& seletor) {
+void getC_bus(const bitset<9>& seletor){
     for (int i = 0; i < 9; ++i) {
-        if (seletor[i])
-            return registradores[i];
+        if(seletor.test(i)){
+            switch (i)
+            {
+            case 0:
+                c_bus += "MAR ";
+                break;
+            case 1:
+                c_bus += "MDR ";
+                break;
+            case 2:
+                c_bus += "PC ";
+                break;
+            case 3:
+                c_bus += "SP ";
+                break;
+            case 4:
+                c_bus += "LV ";
+                break;
+            case 5:
+                c_bus += "CPP ";
+                break;
+            case 6:
+                c_bus += "TOS ";
+                break;
+            case 7:
+                c_bus += "OPC ";
+                break;
+            case 8:
+                c_bus += "H ";
+                break;
+            default:
+                break;
+            }
+        }
     }
-    return bitset<32>(0);
 }
-
-
 
 void Seletor(const bitset<9>& seletor, const bitset<32>& valor) {
     for (int i = 0; i < 9; ++i) {
-        if (seletor[i]) {
-            registradores[i] = valor;
+        if(seletor.test(i)){
+            switch (i)
+            {
+            case 0:
+                MAR = valor;
+                c_bus += "MAR ";
+                break;
+            case 1:
+                MDR = valor;
+                c_bus += "MDR ";
+                break;
+            case 2:
+                PC = valor;
+                c_bus += "PC ";
+                break;
+            case 3:
+                SP = valor;
+                c_bus += "SP ";
+                break;
+            case 4:
+                LV = valor;
+                c_bus += "LV ";
+                break;
+            case 5:
+                CPP = valor;
+                c_bus += "CPP ";
+                break;
+            case 6:
+                TOS = valor;
+                c_bus += "TOS ";
+                break;
+            case 7:
+                OPC = valor;
+                c_bus += "OPC ";
+                break;
+            case 8:
+                H = valor;
+                c_bus += "H ";
+                break;
+            default:
+                break;
+            }
         }
     }
+}
+
+bitset<9> getBitSelect(const vector<int>& instrucao){ // Pega os 9 bits de select
+    string bitsSelect;
+    for (int k = 8; k < 8 + 9; k++) {
+        bitsSelect.push_back(instrucao[k] ? '1' : '0');
+    }
+    bitset<9> Bitset_Select(bitsSelect);
+    return Bitset_Select;
 }
 
 vector<bitset<32>> FuncAB(const vector<int>& instrucao, const bitset<32>& A, const bitset<32>& B) {
@@ -126,6 +265,18 @@ vector<bitset<32>> FuncDesloc(const vector<int> &instrucao, const bitset<32> &S)
     return {SD};
 }
 
+void printRegisters(){
+    cout << "MAR = " << MAR << endl;
+    cout << "MDR = " << MDR << endl;
+    cout << "PC = "  << PC  << endl;
+    cout << "MBR = " << MBR << endl;
+    cout << "SP =  " << SP  << endl;
+    cout << "LV =  " << LV  << endl;
+    cout << "CPP = " << CPP << endl;
+    cout << "TOS = " << TOS << endl;
+    cout << "OPC = " << OPC << endl;
+    cout << "H   = " << H   << endl;
+}
 
 void Print(const vector<int> &instrucao, const vector<bitset<32>> &resultado, const bitset<32> &A, const bitset<32> &B, int PC)
     {
@@ -133,28 +284,29 @@ void Print(const vector<int> &instrucao, const vector<bitset<32>> &resultado, co
     for (int bit : instrucao) {
     IR_value = (IR_value << 1) | bit; // Desloca bits
     }
-    bitset<8> IR(IR_value);
+    bitset<21> IR(IR_value);
+    getC_bus(getBitSelect(instrucao));
+    cout << "============================================================" << endl;
+    cout << "Cycle " << PC << endl;
+    cout << "IR " << IR << endl;
+    cout << "b_bus = " << b_bus << endl;
+    cout << "c_bus = " << c_bus << endl;
+    
+    cout << endl << "> Registers before instruction" << endl;
+    printRegisters();
 
     bitset<32> S = resultado[0];
     int CO = resultado[1][0]; // acesso ao bit 0 do bitset<32>
     bitset<32> SD = FuncDesloc(instrucao, S)[0];
     bool Z = (SD == 0);
     bool N = SD[0];
+    Seletor(getBitSelect(instrucao),SD);
+    
+    cout << endl << "> Registers after instruction" << endl;
+    printRegisters();
 
-    // Impressão
-    cout << "============================================================" << endl;
-    cout << "Cycle " << PC << endl << endl;
-    cout << "PC = " << PC << endl;
-    cout << "IR = " << IR << endl;
-    cout << "B  = " << B << endl;
-    cout << "A  = " << A << endl;
-    cout << "S  = " << S << endl;
-    cout << "SD = " << SD << endl;
-    cout << "CO = " << CO << endl;
-    cout << "Z = " << Z << endl;
-    cout << "N = " << N << endl;
-
-
+    b_bus.clear();
+    c_bus.clear();
 }
 
 int main(int argc,char** argv){
@@ -172,7 +324,7 @@ int main(int argc,char** argv){
 
     vector<vector<int>> Palavras;       // i representa as operacoes ou linhas de codigo, j representa os 6 bits
     int PC = 0;                         // Program Count = linhas de codigo executadas
-    int IR;                             // Instrucao atual = 6 bits de entrada
+    int IR;                             // Instrucao atual 
 
     string linha;
     while (getline(inputFile, linha)) {
@@ -184,15 +336,15 @@ int main(int argc,char** argv){
     }
 
     vector<bitset<32>> resultado;
-    bitset<32> A(string("00000000000000000000000000000001"));
-    bitset<32> B(string("10000000000000000000000000000000"));
-
     cout << "Start of Program" << endl;
 
     for (int i = 0; i < Palavras.size(); i++) {
         PC = i + 1;
         int op0 = Palavras[i][2];
         int op1 = Palavras[i][3];
+        
+        bitset<32> A = H;
+        bitset<32> B = Decod(Palavras[i]);
 
         if (Palavras[i][0] == 1 && Palavras[i][1] == 1) {
             unsigned int IR_value = 0;
