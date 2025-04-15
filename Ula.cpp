@@ -69,7 +69,6 @@ uint32_t aluOperation(uint32_t A, uint32_t B, const std::string &ctrl, bool &car
 
     Z = (result == 0);
     N = ((result >> 31) & 1) == 1;
-
     return result;
 }
 
@@ -77,19 +76,33 @@ uint32_t aluOperation(uint32_t A, uint32_t B, const std::string &ctrl, bool &car
 uint32_t getBusBValue(const std::string &codeStr, const Registers &reg, std::string &bRegName) {
     int code = std::stoi(codeStr, nullptr, 2);
     switch(code) {
-        case 8: bRegName = "opc"; return reg.OPC;
-        case 7: bRegName = "tos"; return reg.TOS;
-        case 6: bRegName = "cpp"; return reg.CPP;
-        case 5: bRegName = "lv";  return reg.LV;
-        case 4: bRegName = "sp";  return reg.SP;
-        case 3: bRegName = "mbru"; return zeroExtend(reg.MBR);
-        case 2: bRegName = "mbr";  return static_cast<uint32_t>(signExtend(reg.MBR));
-        case 1: bRegName = "pc";  return reg.PC;
-        case 0: bRegName = "mdr"; return reg.MDR;
-        default:
-            bRegName = "indefinido";
-            return 0;
+        case 8: bRegName = "sp";  break;
+        case 7: bRegName = "tos"; break;
+        case 6: bRegName = "cpp"; break;
+        case 5: bRegName = "lv"; break;
+        case 4: bRegName = "sp"; break;
+        case 3: bRegName = "mbru"; break;
+        case 2: bRegName = "mbr"; break;
+        case 1: bRegName = "pc"; break;
+        case 0: bRegName = "mdr"; break;
+        default: bRegName = "indefinido"; break;
     }
+    if(bRegName == "sp")
+        return reg.SP;
+    else if(bRegName == "tos")
+        return reg.TOS;
+    else if(bRegName == "cpp")
+        return reg.CPP;
+    else if(bRegName == "lv")
+        return reg.LV;
+    else if(bRegName == "mbru")
+        return zeroExtend(reg.MBR);
+    else if(bRegName == "mbr")
+        return static_cast<uint32_t>(signExtend(reg.MBR));
+    else if(bRegName == "pc")
+        return reg.PC;
+    else // "mdr"
+        return reg.MDR;
 }
 
 
@@ -108,6 +121,7 @@ std::vector<std::string> getBusCRegisters(const std::string &sel) {
     return regs;
 }
 
+
 void applyBusCSelector(const std::string &sel, Registers &reg, uint32_t Sd) {
     if (sel.size() != 9) return;
     if (sel[0] == '1') reg.H = Sd;
@@ -124,6 +138,7 @@ void applyBusCSelector(const std::string &sel, Registers &reg, uint32_t Sd) {
 
 std::string registersToString(const Registers &reg) {
     std::ostringstream oss;
+    oss << "*******************************" << "\n";
     oss << "mar = " << std::bitset<32>(reg.MAR) << "\n"
         << "mdr = " << std::bitset<32>(reg.MDR) << "\n"
         << "pc  = " << std::bitset<32>(reg.PC)  << "\n"
@@ -133,21 +148,55 @@ std::string registersToString(const Registers &reg) {
         << "cpp = " << std::bitset<32>(reg.CPP) << "\n"
         << "tos = " << std::bitset<32>(reg.TOS) << "\n"
         << "opc = " << std::bitset<32>(reg.OPC) << "\n"
-        << "h   = " << std::bitset<32>(reg.H);
+        << "h   = " << std::bitset<32>(reg.H)   << "\n";
+    oss << "*******************************";
     return oss.str();
+}
+
+std::string memoryToString(const std::vector<uint32_t> &mem) {
+    std::ostringstream oss;
+    oss << "*******************************" << "\n";
+    for (size_t i = 0; i < mem.size(); i++) {
+        oss << std::bitset<32>(mem[i]) << "\n";
+    }
+    oss << "*******************************";
+    return oss.str();
+}
+
+
+std::vector<uint32_t> loadMemory(const std::string &filename) {
+    std::vector<uint32_t> mem;
+    std::ifstream fin(filename);
+    if (!fin) {
+        std::cerr << "Arquivo de dados não encontrado. Inicializando memória com valores padrão." << std::endl;
+
+        mem.resize(16, 0);
+        if(mem.size() >= 5)
+            mem[4] = 0x00000002;
+        return mem;
+    }
+    std::string line;
+    while (std::getline(fin, line)) {
+        if(!line.empty()){
+            uint32_t word = static_cast<uint32_t>(std::stoul(line, nullptr, 2));
+            mem.push_back(word);
+        }
+    }
+    fin.close();
+
+    if(mem.size() < 16)
+        mem.resize(16, 0);
+    return mem;
 }
 
 int main() {
 
     std::vector<std::string> instructions;
-
-    std::ifstream fin("tarefa2Etp2.txt");
+    std::ifstream fin("micro.txt");
     if (!fin) {
-        std::cerr << "Nao foi possivel abrir o arquivo de instrucoes." << std::endl;
+        std::cerr << "Não foi possível abrir o arquivo de microinstruções." << std::endl;
         return 1;
     }
-
-
     std::string line;
     while (std::getline(fin, line)) {
         if(!line.empty())
@@ -155,97 +204,112 @@ int main() {
     }
     fin.close();
 
+
+    std::vector<uint32_t> memory = loadMemory("dados.txt");
+
     std::ofstream flog("log.txt");
     if (!flog) {
-        std::cerr << "Nao foi possivel criar o arquivo de log." << std::endl;
+        std::cerr << "Não foi possível criar o arquivo de log." << std::endl;
         return 1;
     }
 
 
-    for (const auto &instr : instructions) {
-        flog << instr << std::endl;
-    }
-
-    flog << "\n=====================================================" << std::endl;
-    flog << "> Initial register states" << std::endl;
+    flog << "============================================================" << "\n";
+    flog << "Initial memory state" << "\n";
+    flog << memoryToString(memory) << "\n";
 
 
     Registers reg;
-
-    reg.MAR = 0x00000000;
+    reg.MAR = 0x00000004;
     reg.MDR = 0x00000000;
     reg.PC  = 0x00000000;
-    reg.MBR = 0x81; // 10000001
-    reg.SP  = 0x00000000;
+    reg.MBR = 0x00;
+    reg.SP  = 0x00000004;
     reg.LV  = 0x00000000;
     reg.CPP = 0x00000000;
-    reg.TOS = 0x00000002;
+    reg.TOS = 0x00000000;
     reg.OPC = 0x00000000;
-    reg.H   = 0x00000001;
+    reg.H   = 0x00000000;
 
-    flog << registersToString(reg) << std::endl;
-
-    flog << "\n=====================================================" << std::endl;
-    flog << "Start of program" << std::endl;
-    flog << "=====================================================" << std::endl;
-
+    flog << "============================================================" << "\n";
+    flog << "Initial register state" << "\n";
+    flog << registersToString(reg) << "\n";
+    flog << "============================================================" << "\n";
+    flog << "Start of Program" << "\n";
+    flog << "============================================================" << "\n";
 
     int cycle = 1;
     for (const auto &instrLine : instructions) {
+        if (instrLine.length() != 23) continue;
 
-        if (instrLine.length() != 21) continue;
+        flog << "Cycle " << cycle << "\n";
 
-        flog << "Cycle " << cycle << std::endl;
+        std::string ctrl8 = instrLine.substr(0, 8);
+        std::string busC9 = instrLine.substr(8, 9);
+        std::string mem2  = instrLine.substr(17, 2);
+        std::string dec4  = instrLine.substr(19, 4);
 
-        std::string ctrl8 = instrLine.substr(0, 8);    // 8 bits de controle da ULA
-        std::string sel9  = instrLine.substr(8, 9);     // 9 bits do seletor do barramento C
-        std::string dec4  = instrLine.substr(17, 4);    // 4 bits do decodificador do barramento B
-
-
-        flog << "ir = " << ctrl8 << " " << sel9 << " " << dec4 << std::endl << std::endl;
+        flog << "ir = " << ctrl8 << " " << busC9 << " " << mem2 << " " << dec4 << "\n";
 
 
         std::string bRegName;
         uint32_t busB_val = getBusBValue(dec4, reg, bRegName);
-        flog << "b_bus = " << bRegName << std::endl;
+        flog << "b = " << bRegName << "\n";
 
 
-        std::vector<std::string> cRegs = getBusCRegisters(sel9);
-        flog << "c_bus = ";
-        if (cRegs.empty()) flog << "Nenhum";
+        std::vector<std::string> cRegs = getBusCRegisters(busC9);
+        flog << "c = ";
+        if(cRegs.empty())
+            flog << "Nenhum";
         else {
             for (size_t i = 0; i < cRegs.size(); i++) {
                 flog << cRegs[i];
-                if (i < cRegs.size()-1)
+                if(i < cRegs.size()-1)
                     flog << ", ";
             }
         }
-        flog << std::endl << std::endl;
+        flog << "\n\n";
 
-
-        flog << "> Registers before instruction" << std::endl;
-        flog << registersToString(reg) << std::endl << std::endl;
-
+        flog << "> Registers before instruction" << "\n";
+        flog << registersToString(reg) << "\n\n";
 
         bool carryOut = false, flagN = false, flagZ = false;
-
         uint32_t Sd = aluOperation(reg.H, busB_val, ctrl8, carryOut, flagN, flagZ);
 
 
-        applyBusCSelector(sel9, reg, Sd);
+        applyBusCSelector(busC9, reg, Sd);
 
 
-        flog << "> Registers after instruction" << std::endl;
-        flog << registersToString(reg) << std::endl;
-        flog << "=====================================================" << std::endl;
+        if (mem2 == "10") {
+            size_t addr = reg.MAR;
+            if(addr < memory.size()) {
+                memory[addr] = reg.MDR;
+                flog << "Memory WRITE: address " << addr << " updated with MDR value." << "\n";
+            } else {
+                flog << "Memory WRITE: address out of range!" << "\n";
+            }
+        } else if (mem2 == "01") {
+            size_t addr = reg.MAR;
+            if(addr < memory.size()) {
+                reg.MDR = memory[addr];
+                flog << "Memory READ: MDR updated with memory content at address " << addr << "." << "\n";
+            } else {
+                flog << "Memory READ: address out of range!" << "\n";
+            }
+        }
 
+        flog << "\n> Registers after instruction" << "\n";
+        flog << registersToString(reg) << "\n\n";
+        flog << "> Memory after instruction" << "\n";
+        flog << memoryToString(memory) << "\n";
+        flog << "============================================================" << "\n";
         cycle++;
     }
 
-    flog << "Cycle " << cycle << std::endl;
-    flog << "No more lines, EOP." << std::endl;
-
+    flog << "Cycle " << cycle << "\n";
+    flog << "No more lines, EOP." << "\n";
     flog.close();
+
     std::cout << "Processamento concluido. Verifique o arquivo 'log.txt'." << std::endl;
     return 0;
 }
