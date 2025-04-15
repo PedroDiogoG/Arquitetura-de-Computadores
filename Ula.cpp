@@ -153,6 +153,7 @@ std::string registersToString(const Registers &reg) {
     return oss.str();
 }
 
+
 std::string memoryToString(const std::vector<uint32_t> &mem) {
     std::ostringstream oss;
     oss << "*******************************" << "\n";
@@ -189,6 +190,54 @@ std::vector<uint32_t> loadMemory(const std::string &filename) {
     return mem;
 }
 
+
+bool loadRegs(const std::string& filename, Registers& reg) {
+    std::ifstream fin(filename);
+    if (!fin) {
+        std::cerr << "Erro ao abrir o arquivo de registradores." << std::endl;
+        return false;
+    }
+
+    std::string linha;
+    while (std::getline(fin, linha)) {
+        if (linha.empty()) continue;
+
+        std::istringstream iss(linha);
+        std::string nome, igual, valor_bin;
+        if (!(iss >> nome >> igual >> valor_bin)) {
+            std::cerr << "Linha mal formatada: " << linha << std::endl;
+            continue;
+        }
+
+        // Remove o caractere '=' e transforma o nome em minúsculo (opcional)
+        if (nome.back() == '=') nome.pop_back();
+        for (auto& c : nome) c = std::tolower(c);
+
+        // Converte binário para inteiro
+        uint32_t valor = 0;
+        if (valor_bin.length() == 8)
+            valor = static_cast<uint8_t>(std::bitset<8>(valor_bin).to_ulong());
+        else
+            valor = static_cast<uint32_t>(std::bitset<32>(valor_bin).to_ulong());
+
+        // Atribui ao registrador correspondente
+        if (nome == "mar") reg.MAR = valor;
+        else if (nome == "mdr") reg.MDR = valor;
+        else if (nome == "pc")  reg.PC  = valor;
+        else if (nome == "mbr") reg.MBR = static_cast<uint8_t>(valor);
+        else if (nome == "sp")  reg.SP  = valor;
+        else if (nome == "lv")  reg.LV  = valor;
+        else if (nome == "cpp") reg.CPP = valor;
+        else if (nome == "tos") reg.TOS = valor;
+        else if (nome == "opc") reg.OPC = valor;
+        else if (nome == "h")   reg.H   = valor;
+        else std::cerr << "Registrador desconhecido: " << nome << std::endl;
+    }
+
+    fin.close();
+    return true;
+}
+
 int main() {
 
     std::vector<std::string> instructions;
@@ -220,6 +269,10 @@ int main() {
 
 
     Registers reg;
+    if (!loadRegs("registradores.txt", reg)) {
+        return 1;
+    }
+    /*
     reg.MAR = 0x00000004;
     reg.MDR = 0x00000000;
     reg.PC  = 0x00000000;
@@ -230,7 +283,7 @@ int main() {
     reg.TOS = 0x00000000;
     reg.OPC = 0x00000000;
     reg.H   = 0x00000000;
-
+    */
     flog << "============================================================" << "\n";
     flog << "Initial register state" << "\n";
     flog << registersToString(reg) << "\n";
